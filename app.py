@@ -12,17 +12,17 @@ def extract_safe(text, pattern, group=1, default=""):
     return match.group(group).strip() if match else default
 
 def smart_extract_dpp_tarif_pph(text):
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        if "KODE OBJEK PAJAK" in line:
-            if i + 1 < len(lines):
-                data_line = lines[i + 1]
-                numbers = re.findall(r"\d[\d.]*", data_line)
-                if len(numbers) >= 4:
+    for line in text.splitlines():
+        if "24-104-07" in line:
+            numbers = re.findall(r"\d[\d.]*", line)
+            if len(numbers) >= 4:
+                try:
                     dpp = int(numbers[1].replace(".", ""))
                     tarif = int(numbers[2])
                     pph = int(numbers[3].replace(".", ""))
                     return dpp, tarif, pph
+                except:
+                    continue
     return 0, 0, 0
 
 def extract_data_from_pdf(file):
