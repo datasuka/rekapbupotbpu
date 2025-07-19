@@ -7,38 +7,41 @@ from io import BytesIO
 st.set_page_config(page_title="Rekap Bukti Potong PDF", layout="wide")
 st.title("📄 Rekap Bukti Potong PPh dari PDF ke Excel")
 
+def extract_safe(text, pattern, group=1, default=""):
+    match = re.search(pattern, text)
+    return match.group(group).strip() if match else default
+
 def extract_data_from_pdf(file):
     with pdfplumber.open(file) as pdf:
         text = "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
     try:
         data = {}
-        data["NOMOR"] = re.search(r"BPPU\s+(\S+)", text).group(1)
-        data["MASA PAJAK"] = re.search(rf"{data['NOMOR']}\s+(\d{{2}}-\d{{4}})", text).group(1)
-        data["SIFAT PEMOTONGAN"] = re.search(r"(\bTIDAK FINAL\b|\bFINAL\b)", text).group(1)
-        data["STATUS BUKTI"] = re.search(r"(NORMAL|PEMBETULAN)", text).group(1)
+        data["NOMOR"] = extract_safe(text, r"\n(\S{9})\s+\d{2}-\d{4}")
+        data["MASA PAJAK"] = extract_safe(text, r"\n\S{9}\s+(\d{2}-\d{4})")
+        data["SIFAT PEMOTONGAN"] = extract_safe(text, r"(TIDAK FINAL|FINAL)")
+        data["STATUS BUKTI"] = extract_safe(text, r"(NORMAL|PEMBETULAN)")
 
-        data["NPWP / NIK"] = re.search(r"A\.1 NPWP / NIK\s*:\s*(\d+)", text).group(1)
-        data["NAMA"] = re.search(r"A\.2 NAMA\s*:\s*(.+)", text).group(1).strip()
-        data["NOMOR IDENTITAS TEMPAT USAHA"] = re.search(r"A\.3 NOMOR IDENTITAS.*?:\s*(\d+)", text).group(1)
+        data["NPWP / NIK"] = extract_safe(text, r"A\.1 NPWP / NIK\s*:\s*(\d+)")
+        data["NAMA"] = extract_safe(text, r"A\.2 NAMA\s*:\s*(.+)")
+        data["NOMOR IDENTITAS TEMPAT USAHA"] = extract_safe(text, r"A\.3 NOMOR IDENTITAS.*?:\s*(\d+)")
 
-        data["JENIS PPH"] = re.search(r"B\.2 Jenis PPh\s*:\s*(Pasal \d+)", text).group(1)
-        data["KODE OBJEK"] = re.search(r"(\d{2}-\d{3}-\d{2})", text).group(1)
-        data["OBJEK PAJAK"] = re.search(r"\d{2}-\d{3}-\d{2}\s+(.+)", text).group(1).split()[0]
-        data["DPP"] = int(re.search(r"DPP\s*\(Rp\)\s*(\d[\d\.]*)", text).group(1).replace(".", ""))
-        data["TARIF %"] = int(re.search(r"TARIF\s*\(%\)\s*(\d+)", text).group(1))
-        data["PAJAK PENGHASILAN"] = int(re.search(r"PENGHASILAN\s*\(Rp\)\s*(\d[\d\.]*)", text).group(1).replace(".", ""))
+        data["JENIS PPH"] = extract_safe(text, r"B\.2 Jenis PPh\s*:\s*(Pasal \d+)")
+        data["KODE OBJEK"] = extract_safe(text, r"(\d{2}-\d{3}-\d{2})")
+        data["OBJEK PAJAK"] = extract_safe(text, r"\d{2}-\d{3}-\d{2}\s+([A-Za-z ]+)")
+        data["DPP"] = int(extract_safe(text, r"DPP.*?\n.*?(\d[\d\.]+)").replace(".", "") or 0)
+        data["TARIF %"] = int(extract_safe(text, r"TARIF.*?\n.*?(\d+)", default="0"))
+        data["PAJAK PENGHASILAN"] = int(extract_safe(text, r"PENGHASILAN.*?\n.*?(\d[\d\.]+)").replace(".", "") or 0)
 
-        data["JENIS DOKUMEN"] = re.search(r"Jenis Dokumen\s*:\s*(.+)", text).group(1).strip()
-        data["TANGGAL DOKUMEN"] = re.search(r"Tanggal\s*:\s*(\d{2} .+ \d{4})", text).group(1)
+        data["JENIS DOKUMEN"] = extract_safe(text, r"Jenis Dokumen\s*:\s*(.+)")
+        data["TANGGAL DOKUMEN"] = extract_safe(text, r"Tanggal\s*:\s*(\d{2} .+ \d{4})")
+        data["NOMOR DOKUMEN"] = extract_safe(text, r"Nomor Dokumen\s*:\s*(.+)")
 
-        data["NOMOR DOKUMEN"] = re.search(r"Nomor Dokumen\s*:\s*(.+)", text).group(1).strip()
-
-        data["NPWP / NIK PEMOTONG"] = re.search(r"C\.1 NPWP / NIK\s*:\s*(\d+)", text).group(1)
-        data["NOMOR IDENTITAS TEMPAT USAHA PEMOTONG"] = re.search(r"C\.2.*?:\s*(\d+)", text).group(1)
-        data["NAMA PEMOTONG"] = re.search(r"C\.3.*?:\s*(.+)", text).group(1).strip()
-        data["TANGGAL PEMOTONGAN"] = re.search(r"C\.4 TANGGAL\s*:\s*(\d{2} .+ \d{4})", text).group(1)
-        data["NAMA PENANDATANGAN"] = re.search(r"C\.5 NAMA PENANDATANGAN\s*:\s*(.+)", text).group(1).strip()
+        data["NPWP / NIK PEMOTONG"] = extract_safe(text, r"C\.1 NPWP / NIK\s*:\s*(\d+)")
+        data["NOMOR IDENTITAS TEMPAT USAHA PEMOTONG"] = extract_safe(text, r"C\.2.*?:\s*(\d+)")
+        data["NAMA PEMOTONG"] = extract_safe(text, r"C\.3.*?:\s*(.+)")
+        data["TANGGAL PEMOTONGAN"] = extract_safe(text, r"C\.4 TANGGAL\s*:\s*(\d{2} .+ \d{4})")
+        data["NAMA PENANDATANGAN"] = extract_safe(text, r"C\.5 NAMA PENANDATANGAN\s*:\s*(.+)")
         return data
     except Exception as e:
         st.warning(f"Gagal ekstrak data: {e}")
