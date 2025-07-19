@@ -11,15 +11,18 @@ def extract_safe(text, pattern, group=1, default=""):
     match = re.search(pattern, text)
     return match.group(group).strip() if match else default
 
-def extract_dpp_tarif_pph(text):
-    for line in text.splitlines():
-        if re.search(r"\d{1,3}\.\d{3}\.\d{3}", line) and "%" not in line:
-            numbers = re.findall(r"\d[\d\.]*", line)
-            if len(numbers) >= 3:
-                dpp = int(numbers[0].replace(".", ""))
-                tarif = int(numbers[1])
-                pph = int(numbers[2].replace(".", ""))
-                return dpp, tarif, pph
+def smart_extract_dpp_tarif_pph(text):
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if "KODE OBJEK PAJAK" in line:
+            if i + 1 < len(lines):
+                data_line = lines[i + 1]
+                numbers = re.findall(r"\d[\d.]*", data_line)
+                if len(numbers) >= 4:
+                    dpp = int(numbers[1].replace(".", ""))
+                    tarif = int(numbers[2])
+                    pph = int(numbers[3].replace(".", ""))
+                    return dpp, tarif, pph
     return 0, 0, 0
 
 def extract_data_from_pdf(file):
@@ -40,7 +43,7 @@ def extract_data_from_pdf(file):
         data["JENIS PPH"] = extract_safe(text, r"B\.2 Jenis PPh\s*:\s*(Pasal \d+)")
         data["KODE OBJEK"] = extract_safe(text, r"(\d{2}-\d{3}-\d{2})")
         data["OBJEK PAJAK"] = extract_safe(text, r"\d{2}-\d{3}-\d{2}\s+([A-Za-z ]+)")
-        data["DPP"], data["TARIF %"], data["PAJAK PENGHASILAN"] = extract_dpp_tarif_pph(text)
+        data["DPP"], data["TARIF %"], data["PAJAK PENGHASILAN"] = smart_extract_dpp_tarif_pph(text)
 
         data["JENIS DOKUMEN"] = extract_safe(text, r"Jenis Dokumen\s*:\s*(.+)")
         data["TANGGAL DOKUMEN"] = extract_safe(text, r"Tanggal\s*:\s*(\d{2} .+ \d{4})")
