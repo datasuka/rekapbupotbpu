@@ -13,13 +13,14 @@ def extract_safe(text, pattern, group=1, default=""):
 
 def smart_extract_dpp_tarif_pph(text):
     for line in text.splitlines():
-        if "24-104-07" in line:
+        if re.search(r"\b\d{2}-\d{3}-\d{2}\b", line):
             numbers = re.findall(r"\d[\d.]*", line)
-            if len(numbers) >= 4:
+            if len(numbers) >= 6:
                 try:
-                    dpp = int(numbers[1].replace(".", ""))
-                    tarif = int(numbers[2])
-                    pph = int(numbers[3].replace(".", ""))
+                    # Lewati 3 angka pertama (kode objek: 24, 104, 07)
+                    dpp = int(numbers[3].replace(".", ""))
+                    tarif = int(numbers[4])
+                    pph = int(numbers[5].replace(".", ""))
                     return dpp, tarif, pph
                 except:
                     continue
